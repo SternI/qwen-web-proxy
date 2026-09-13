@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Qwen Web Bridge
-// @namespace    https://github.com/your-username/qwen-web-proxy
+// @namespace    https://github.com/SternI/qwen-web-proxy
 // @version      1.0.0
 // @description  Automates chat.qwen.ai bridge for local OpenAI-compatible proxy
 // @match        https://chat.qwen.ai/*
