@@ -38,7 +38,7 @@ RESET_COMMANDS = {
     "?deletecurrentchat",
 }
 
-JOB_TIMEOUT = 3600  # seconds (1 hour)
+JOB_TIMEOUT = 3600  # seconds
 MAX_PROMPT_CHARS = 32000
 HISTORY_TAIL = 12
 ARG_CHUNK_SIZE = 24
