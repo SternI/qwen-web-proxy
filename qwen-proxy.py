@@ -288,24 +288,16 @@ def build_prompt(
 
 
 _TOOL_CALL_BLOCK_RE = re.compile(
-    r"<tool_call>(.*?)(?:</tool_call>|</[|\uFF5C]{2}DSML[|\uFF5C]{2}\s*(?:calls|invoke|parameter)>|(?=<tool_call>)|$)",
+    r"<tool_call>(.*?)(?:</tool_call>|(?=<tool_call>)|$)",
     re.DOTALL | re.IGNORECASE,
 )
 _TAG_NAME_RE = re.compile(r"<name>(.*?)</name>", re.DOTALL | re.IGNORECASE)
 _TAG_ARGS_RE = re.compile(
-    r"<arguments>(.*?)(?:</arguments>|</[|\uFF5C]{2}DSML[|\uFF5C]{2}\s*(?:parameter|invoke|calls)>|$)",
+    r"<arguments>(.*?)(?:</arguments>|$)",
     re.DOTALL | re.IGNORECASE,
 )
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 _FENCE_RE = re.compile(r"```[a-zA-Z0-9_-]*\s*|\s*```")
-_DSML_INVOKE_RE = re.compile(
-    r"<[|\uFF5C]{2}DSML[|\uFF5C]{2}\s+invoke\s+name=[\"']([^\"']+)[\"']\s*>(.*?)(?:</[|\uFF5C]{2}DSML[|\uFF5C]{2}\s+invoke>|$)",
-    re.DOTALL | re.IGNORECASE,
-)
-_DSML_PARAM_RE = re.compile(
-    r"<[|\uFF5C]{2}DSML[|\uFF5C]{2}\s+parameter\s+name=[\"']([^\"']+)[\"'](?:\s+[^>]*)?>(.*?)(?:</[|\uFF5C]{2}DSML[|\uFF5C]{2}\s+parameter>|$)",
-    re.DOTALL | re.IGNORECASE,
-)
 
 
 def _strip_fences(text: str) -> str:
@@ -492,36 +484,6 @@ def parse_tool_calls(raw: str, tool_names: list[str]) -> list[dict]:
     if calls:
         return _validate_calls(calls, tool_names)
 
-    # 2. DeepSeek Native DSML format:
-    # <｜｜DSML｜｜ calls>
-    # <｜｜DSML｜｜ invoke name="TOOL_NAME">
-    # <｜｜DSML｜｜ parameter name="PARAM" string="true">VALUE</｜｜DSML｜｜ parameter>
-    # </｜｜DSML｜｜ invoke>
-    # </｜｜DSML｜｜ calls>
-    for m in _DSML_INVOKE_RE.finditer(raw):
-        name = m.group(1).strip()
-        body = m.group(2)
-        args = {}
-        for pm in _DSML_PARAM_RE.finditer(body):
-            pname = pm.group(1).strip()
-            pval = pm.group(2).strip()
-            if pval.lower() == "true":
-                args[pname] = True
-            elif pval.lower() == "false":
-                args[pname] = False
-            elif pval.lower() == "null":
-                args[pname] = None
-            elif pval.isdigit():
-                args[pname] = int(pval)
-            else:
-                try:
-                    args[pname] = json.loads(pval)
-                except Exception:
-                    args[pname] = pval
-        calls.append({"name": name, "arguments": args})
-
-    if calls:
-        return _validate_calls(calls, tool_names)
     payload = _find_json_in(_strip_fences(raw))
     if isinstance(payload, dict):
         name = payload.get("name") or payload.get("tool") or payload.get("function")
@@ -1010,7 +972,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
             f"\033[93m[Debug]\033[0m parse_tool_calls: found={len(parsed)} "
             f"names={[c['name'] for c in parsed]} valid_names={tool_names}"
         )
-        if ("<tool_call>" in raw_text or "DSML" in raw_text) and not parsed:
+        if "<tool_call>" in raw_text and not parsed:
             print(
                 f"\033[91m[Debug-ParseError]\033[0m tool tag found but failed to parse: {repr(raw_text[:600])}"
             )
@@ -1209,7 +1171,7 @@ async def handle_chat_completions(request: web.Request) -> web.Response:
         first = True
         frag_count = 0
 
-        # Stream reasoning_content fragments first if thinking output is present (DeepSeek-R1)
+        # Stream reasoning_content fragments first if thinking output is present
         if reasoning:
             for fragment in iter_text_fragments(reasoning, size=64):
                 delta = {"reasoning_content": fragment}
