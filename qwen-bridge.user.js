@@ -19,7 +19,7 @@
   window.__QWEN_BRIDGE_INITIALIZED__ = true;
 
   const WS_URL = "ws://127.0.0.1:1338/ws";
-  const JOB_TIMEOUT_MS = 600_000;
+  const JOB_TIMEOUT_MS = 3_600_000; // 1 hour
 
   const isCompletionUrl = (url) => {
     if (!url) return false;

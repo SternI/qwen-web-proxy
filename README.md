@@ -64,8 +64,8 @@ Add this provider to your OpenCode config (`opencode.jsonc`):
       "options": {
         "baseURL": "http://127.0.0.1:1338/v1",
         "apiKey": "nah",
-        "timeout": 300000,
-        "chunkTimeout": 300000
+        "timeout": 3600000,
+        "chunkTimeout": 3600000
       },
       "models": {
         "qwen-chat": {
