@@ -2,7 +2,7 @@
 // @name         Qwen Web Bridge
 // @namespace    https://github.com/your-username/qwen-web-proxy
 // @version      1.0.0
-// @description  Automates chat.qwen.ai bridge for local OpenAI-compatible proxy with Web Search, Deep Research, Agent Mode, and Image Generation support
+// @description  Automates chat.qwen.ai bridge for local OpenAI-compatible proxy
 // @match        https://chat.qwen.ai/*
 // @match        https://chat.qwenlm.ai/*
 // @grant        none
@@ -773,7 +773,7 @@
       } catch (err) {
         clearTimeout(timeoutId);
         _pendingCapture = null;
-        updateBadge("connected", "Bridge: Ready");
+        updateBadge("connected", "Bridge: Connected (Ready)");
         log(`[WS] Request ${id} failed: ${err.message}`, "#ef4444");
         ws.send(JSON.stringify({ id, error: String(err) }));
       }

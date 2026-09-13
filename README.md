@@ -2,32 +2,24 @@
 
 OpenAI-compatible local API proxy for Qwen Web (`chat.qwen.ai` & `chat.qwenlm.ai`).
 
-Allows you to use Qwen models and specialized features (**Web Search**, **Deep Research**, **Agent Mode**, and **Image Generation**) with any OpenAI-compatible client or SDK.
+Allows you to use Qwen models (**Qwen Chat**, **Deep Search / Thinking**, and **Web Search**) with OpenCode or any OpenAI-compatible client.
 
 ---
 
 ## Disclaimer
 
-This repository is created for **educational and research purposes only**. It demonstrates browser automation, WebSocket bridging, and local reverse proxy architectures. It is not affiliated with, endorsed by, or sponsored by Alibaba or Qwen.
+This project is for educational and research purposes only. It is not affiliated with or endorsed by Alibaba or Qwen.
 
 ---
 
 ## Features
 
-- **OpenAI Chat Compatibility**: Exposes `http://127.0.0.1:1338/v1/chat/completions` and `/v1/models`.
-- **OpenAI Images API**: Exposes `http://127.0.0.1:1338/v1/images/generations` powered by `qwen-image-3.0-pro`.
-- **Native Feature Modes**:
-  - `qwen-search`: Live web search enabled.
-  - `qwen-deep-search` / `qwen-deep-thinking`: Deep thinking / deep search.
-  - `qwen-deep-research`: Advanced multi-step research mode.
-  - `qwen-agent`: Qwen Agent Mode (web search + code interpreter + execution).
-  - `qwen-image` / `qwen-image-3.0-pro`: Text-to-image creation returning direct image URLs.
-- **Native Tool Calling**: Automatically translates tool schemas to the model and parses `<tool_call>` outputs into OpenAI function call structures.
-- **XML Tool Protocol Support**: Compatibility with agent XML tool formats (`<attempt_completion>`, `<ask_followup_question>`).
-- **Real-Time Token Usage Tracking**: Intercepts native token usage (`prompt_tokens`, `completion_tokens`, `total_tokens`, and cached tokens).
-- **Reasoning / Thinking Mode**: Extracts thinking process into `reasoning_content` delta chunks.
-- **Chat Management**: Use `/clear`, `/reset`, `/new`, or `/deleteCurrentChat` in chat to automatically start a fresh session.
-- **Lightweight**: Pure Python (`aiohttp`) + Tampermonkey userscript with zero heavy browser automation dependencies (no Selenium/Playwright).
+- **OpenAI API Compatibility**: Exposes `http://127.0.0.1:1338/v1/chat/completions` and `/v1/models`.
+- **Reasoning / Thinking**: Streams thinking / reasoning process into `reasoning_content` delta chunks in real-time.
+- **Tool Calling**: Translates tool schemas and parses `<tool_call>` outputs into OpenAI function call structures for agent tools (`write`, `edit`, `bash`, `read`).
+- **Real-Time Token Tracking**: Reports native token usage (`prompt_tokens`, `completion_tokens`, `total_tokens`, and cached tokens).
+- **Chat Management**: Send `/clear`, `/reset`, or `/new` in chat to start a clean conversation session.
+- **Lightweight**: Pure Python (`aiohttp`) + Tampermonkey script with no heavy automation frameworks.
 
 ---
 
@@ -41,9 +33,9 @@ pip install -r requirements.txt
 
 ### 2. Install Userscript
 
-1. Install Tampermonkey or Violentmonkey in your browser.
+1. Install [Tampermonkey](https://www.tampermonkey.net/) or Violentmonkey in your browser.
 2. Create a new userscript and paste the contents of [`qwen-bridge.user.js`](./qwen-bridge.user.js).
-3. Navigate to [chat.qwen.ai](https://chat.qwen.ai/) (or [chat.qwenlm.ai](https://chat.qwenlm.ai/)).
+3. Open [chat.qwen.ai](https://chat.qwen.ai/) (or [chat.qwenlm.ai](https://chat.qwenlm.ai/)) and log in.
 4. You will see a badge at the bottom-right: **Bridge: Connected (Ready)** once the proxy is running.
 
 ### 3. Start the Proxy
@@ -55,23 +47,62 @@ python qwen-proxy.py
 Options:
 - `--host 127.0.0.1`: Listening host (default: `127.0.0.1`).
 - `--port 1338`: Listening port (default: `1338`).
-- `--reset-threshold 150000`: Auto-reset chat session if total tokens exceed threshold (default: `150000`, `0` to disable).
+- `--reset-threshold 150000`: Auto-reset chat session if tokens exceed limit (default: `150000`, `0` to disable).
 
 ---
 
-## Client Configration
+## OpenCode Configration
 
-Use these basic settings in any OpenAI-compatible client:
+Add this provider to your OpenCode config (`opencode.jsonc`):
+
+```json
+{
+  "provider": {
+    "qwen-proxy": {
+      "api": "openai",
+      "name": "Qwen Web Proxy",
+      "options": {
+        "baseURL": "http://127.0.0.1:1338/v1",
+        "apiKey": "nah",
+        "timeout": 300000,
+        "chunkTimeout": 300000
+      },
+      "models": {
+        "qwen-chat": {
+          "id": "qwen-chat",
+          "name": "Qwen Chat (Web Proxy)",
+          "tool_call": true,
+          "temperature": true
+        },
+        "qwen-deep-search": {
+          "id": "qwen-deep-search",
+          "name": "Qwen Deep Search / Thinking (Web Proxy)",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": true
+        },
+        "qwen-search": {
+          "id": "qwen-search",
+          "name": "Qwen Web Search (Web Proxy)",
+          "tool_call": true,
+          "temperature": true
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Other Clients (Cline, Cursor, etc.)
 
 - **Base URL**: `http://127.0.0.1:1338/v1`
 - **API Key**: `nah`
 - **Models**:
-  - `qwen-chat` (standard chat, uses whichever model is active in the web UI)
-  - `qwen-search` (live web search)
-  - `qwen-deep-search` (deep search / thinking)
-  - `qwen-deep-research` (advanced research mode)
-  - `qwen-agent` (agent mode with search & tools)
-  - `qwen-image` (text-to-image generation)
+  - `qwen-chat`: Standard chat (uses active model in web UI)
+  - `qwen-deep-search`: Thinking / deep search enabled
+  - `qwen-search`: Live web search enabled
 
 ---
 
@@ -87,11 +118,14 @@ client = OpenAI(
 
 response = client.chat.completions.create(
     model="qwen-chat",
-    messages=[{"role": "user", "content": "What's Up"}],
+    messages=[{"role": "user", "content": "Hello Qwen"}],
     stream=True,
 )
 
 for chunk in response:
+    reasoning = getattr(chunk.choices[0].delta, "reasoning_content", None)
+    if reasoning:
+        print(reasoning, end="", flush=True)
     content = chunk.choices[0].delta.content or ""
     print(content, end="", flush=True)
 ```
@@ -101,8 +135,7 @@ for chunk in response:
 ## Notes & Chat Management
 
 - Keep the browser tab open while using the proxy.
-- If the browser badge shows disconnected, click it to reconnect immediately.
-- Auto-resets the browser chat when session tokens reach 150k (configurable via `--reset-threshold`) to prevent context overflows.
+- If the badge shows disconnected, click it to reconnect immediately.
 - To reset manually, send `/clear`, `/reset`, or `/new` directly from your client prompt (or run `window.deleteCurrentChat()` in the browser console).
 
 ---
